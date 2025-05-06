@@ -91,6 +91,14 @@ async def get_active_users(session: AsyncSession = Depends(get_session)):
     active_users = result.scalars().all()
     return active_users
 
+@app.get("/users/active-premium", response_model=List[UserRead])
+async def get_active_premium_users(session: AsyncSession = Depends(get_session)):
+    result = await session.execute(
+        select(User).where(User.is_active == True, User.is_premium == True)
+    )
+    users = result.scalars().all()
+    return users
+
 
 # Punto de entrada para verificar que la API está funcionando
 @app.get("/")
