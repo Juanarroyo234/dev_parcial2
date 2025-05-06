@@ -1,8 +1,9 @@
 '''Aqui debes construir las operaciones que se te han indicado'''
-from data.models import User
+from data.models import User, Task, TaskStatus
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
+from typing import Optional
 
 async def create_user(
     name: str,
@@ -28,3 +29,24 @@ async def create_user(
     except IntegrityError:
         await session.rollback()  # Si ocurre un error, revertimos la transacción
         raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
+
+async def create_task(
+    title: str,
+    description: Optional[str] = None,
+    status: TaskStatus = TaskStatus.pendiente,
+    session: AsyncSession = None
+):
+    new_task = Task(
+        title=title,
+        description=description,
+        status=status
+    )
+
+    session.add(new_task)
+    try:
+        await session.commit()
+        await session.refresh(new_task)
+        return new_task
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="Error al crear la tarea.")

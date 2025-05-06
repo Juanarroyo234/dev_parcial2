@@ -7,6 +7,7 @@ Escribe aquí el que te corresponde.
 
 from sqlmodel import SQLModel, Field
 from typing import Optional
+from enum import Enum
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -29,3 +30,27 @@ class UserRead(SQLModel):
     email: str
     is_premium: bool
     is_active: bool
+
+class TaskStatus(str, Enum):
+    pendiente = "pendiente"
+    ejecucion = "ejecución"
+    realizada = "realizada"
+    cancelada = "cancelada"
+
+class Task(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: Optional[str] = None
+    status: TaskStatus = Field(default=TaskStatus.pendiente)
+
+class TaskCreate(SQLModel):
+    title: str
+    description: Optional[str] = Field(default=None)
+    status: Optional[TaskStatus] = TaskStatus.pendiente
+
+
+class TaskRead(SQLModel):
+    id: int
+    title: str
+    description: Optional[str]
+    status: TaskStatus
