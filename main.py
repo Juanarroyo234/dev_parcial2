@@ -85,8 +85,15 @@ async def update_user_status(
 
     return user
 
+@app.get("/users/active", response_model=List[UserRead])
+async def get_active_users(session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(User).where(User.is_active == True))
+    active_users = result.scalars().all()
+    return active_users
+
 
 # Punto de entrada para verificar que la API está funcionando
 @app.get("/")
 async def root():
     return {"message": "Welcome to the FastAPI Users API"}
+
