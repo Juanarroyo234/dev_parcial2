@@ -29,5 +29,3 @@ class UserRead(SQLModel):
     email: str
     is_premium: bool
     is_active: bool
-
-

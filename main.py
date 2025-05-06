@@ -1,30 +1,60 @@
-from data.models import User
-from utils.connection_db import get_session
+from fastapi import FastAPI, HTTPException, Depends
+from typing import List
+from data.models import User, UserCreate, UserRead
 from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
-from sqlmodel.ext.asyncio.session import AsyncSession  # Importación de AsyncSession
-from fastapi import Depends
+from sqlmodel import select, SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
+from utils.connection_db import get_session, init_db
+from operations.operations_db import create_user
 
-async def create_user(
-    name: str,
-    email: str,
-    password: str,
-    is_premium: bool = False,
-    is_active: bool = True,
-    session: AsyncSession = Depends(get_session)  # Dependencia de sesión
-):
-    new_user = User(
-        name=name,
-        email=email,
-        password=password,  # Asegúrate de manejar el hash de la contraseña
-        is_premium=is_premium,
-        is_active=is_active
-    )
-    session.add(new_user)
+# Crear la instancia de la aplicación FastAPI
+app = FastAPI()
+
+# Función de inicio para gestionar la base de datos durante el ciclo de vida de la aplicación
+@app.on_event("startup")
+async def on_startup():
+    await init_db()  # Llamamos a la función de inicialización de la DB
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    pass  # Aquí podríamos cerrar conexiones si fuera necesario
+
+# Endpoint para la creación de un nuevo usuario
+@app.post("/users", response_model=UserRead)
+async def add_user(user: UserCreate, session: AsyncSession = Depends(get_session)):
     try:
-        await session.commit()
-        await session.refresh(new_user)
+        # Llamamos a la función para crear el usuario
+        new_user = await create_user(
+            name=user.name,
+            email=user.email,
+            password=user.password,
+            is_premium=user.is_premium,
+            is_active=user.is_active,
+            session=session  # Pasamos la sesión
+        )
         return new_user
     except IntegrityError:
-        await session.rollback()
         raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
+
+# Endpoint para listar todos los usuarios
+@app.get("/users", response_model=List[UserRead])
+async def get_users(session: AsyncSession = Depends(get_session)):
+    # Realizamos una consulta asincrónica para obtener todos los usuarios
+    result = await session.execute(select(User))
+    users = result.scalars().all()  # Convertimos el resultado en una lista de usuarios
+    return users
+
+# Endpoint para obtener un usuario por su ID
+@app.get("/users/{user_id}", response_model=UserRead)
+async def get_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    # Realizamos una consulta asincrónica para obtener un usuario por su ID
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()  # Obtenemos el usuario o None si no existe
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+# Punto de entrada para verificar que la API está funcionando
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the FastAPI Users API"}
