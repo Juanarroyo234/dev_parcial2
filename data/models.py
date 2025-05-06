@@ -13,15 +13,21 @@ class User(SQLModel, table=True):
     name: str
     email: str
     password: str
+    is_premium: bool = Field(default=False)
+    is_active: bool = Field(default=True)
 
 class UserCreate(SQLModel):
     name: str
     email: str
     password: str
+    is_premium: Optional[bool] = False
+    is_active: Optional[bool] = True
 
 class UserRead(SQLModel):
     id: int
     name: str
     email: str
+    is_premium: bool
+    is_active: bool
 
 

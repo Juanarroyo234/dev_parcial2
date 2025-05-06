@@ -1,52 +1,30 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException
-from utils.connection_db import init_db, get_session
-from operations.operations_db import create_user
-from data.models import UserCreate, UserRead
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from sqlmodel import select
-from typing import List
 from data.models import User
 from utils.connection_db import get_session
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession  # Importación de AsyncSession
+from fastapi import Depends
 
-
-
-# Inicialización de la base de datos con lifespan
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_db()
-    yield
-
-app = FastAPI(title="API Usuarios", lifespan=lifespan)
-
-# Endpoints
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
-
-@app.post("/users", response_model=UserRead)
-async def add_user(user: UserCreate, session: AsyncSession = Depends(get_session)):
+async def create_user(
+    name: str,
+    email: str,
+    password: str,
+    is_premium: bool = False,
+    is_active: bool = True,
+    session: AsyncSession = Depends(get_session)  # Dependencia de sesión
+):
+    new_user = User(
+        name=name,
+        email=email,
+        password=password,  # Asegúrate de manejar el hash de la contraseña
+        is_premium=is_premium,
+        is_active=is_active
+    )
+    session.add(new_user)
     try:
-        new_user = await create_user(user.name, user.email, user.password)
+        await session.commit()
+        await session.refresh(new_user)
         return new_user
     except IntegrityError:
-        raise HTTPException(status_code=400, detail="El correo ya existe")
-
-@app.get("/users", response_model=List[User])
-async def get_users(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(User))
-    users = result.scalars().all()
-    return users
-
-@app.get("/users/{user_id}", response_model=User)
-async def get_user(user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
+        await session.rollback()
+        raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
