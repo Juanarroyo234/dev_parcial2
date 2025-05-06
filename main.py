@@ -42,3 +42,11 @@ async def get_users(session: AsyncSession = Depends(get_session)):
     result = await session.execute(select(User))
     users = result.scalars().all()
     return users
+
+@app.get("/users/{user_id}", response_model=User)
+async def get_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
